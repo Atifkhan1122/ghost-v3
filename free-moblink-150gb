@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Child Safety SOS</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --danger-red: #ef4444;
+            --primary-blue: #2563eb;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --accent-cyan: #38bdf8;
+            --border-color: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .mobile-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 24px 20px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        .icon-header {
+            width: 60px;
+            height: 60px;
+            background: rgba(56, 189, 248, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px auto;
+            color: var(--accent-cyan);
+            font-size: 28px;
+        }
+
+        h2 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        p.subtitle {
+            color: var(--text-sub);
+            font-size: 14px;
+            line-height: 1.4;
+            margin-bottom: 28px;
+        }
+
+        .action-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .btn-mobile {
+            width: 100%;
+            padding: 18px;
+            border-radius: 16px;
+            border: none;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: transform 0.1s ease, opacity 0.2s ease;
+        }
+
+        .btn-mobile:active {
+            transform: scale(0.97);
+            opacity: 0.9;
+        }
+
+        .btn-sos {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: white;
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.35);
+        }
+
+        .btn-camera {
+            background: linear-gradient(135deg, #1d4ed8, #2563eb);
+            color: white;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+        }
+
+        .status-box {
+            margin-top: 24px;
+            padding: 12px;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 12px;
+            font-size: 13px;
+            color: var(--accent-cyan);
+            font-weight: 600;
+            border: 1px solid rgba(51, 65, 85, 0.5);
+        }
+
+        #webcam, #canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="mobile-card">
+    <div class="icon-header">
+        <i class="fa-solid fa-shield-cat"></i>
+    </div>
+    <h2>Safety SOS</h2>
+    <p class="subtitle">Emergency ki surat mein niche diye gaye buttons istemal karein:</p>
+
+    <div class="action-group">
+        <button class="btn-mobile btn-sos" onclick="sendSOS()">
+            <i class="fa-solid fa-location-crosshairs"></i> SEND LOCATION SOS
+        </button>
+
+        <button class="btn-mobile btn-camera" onclick="captureInstantPhoto()">
+            <i class="fa-solid fa-camera"></i> INSTANT PHOTO
+        </button>
+    </div>
+
+    <div id="statusText" class="status-box">System Ready</div>
+</div>
+
+<video id="webcam" autoplay playsinline></video>
+<canvas id="canvas"></canvas>
+
+<script>
+    // Firebase Config Keys Paste Karein
+    const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "child-safety-app-bace4.firebaseapp.com",
+    databaseURL: "https://child-safety-app-bace4-default-rtdb.firebaseio.com",
+    projectId: "child-safety-app-bace4",
+    storageBucket: "child-safety-app-bace4.appspot.com",
+    messagingSenderId: "7736848190",
+    appId: "YOUR_APP_ID"
+};
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function sendSOS() {
+        const status = document.getElementById('statusText');
+        status.innerText = "Location bheji ja rahi hai...";
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                db.ref('child_safety/location').set({
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    time: new Date().toLocaleString()
+                });
+
+                if (navigator.getBattery) {
+                    navigator.getBattery().then(b => {
+                        db.ref('child_safety/device_status').set({
+                            battery: Math.round(b.level * 100),
+                            zone: "Outside / Emergency"
+                        });
+                    });
+                }
+                status.innerText = "✅ Location Parent Ko Bhej Di!";
+            }, (err) => { status.innerText = "GPS Error: " + err.message; }, { enableHighAccuracy: true });
+        }
+    }
+
+    async function captureInstantPhoto() {
+        const status = document.getElementById('statusText');
+        status.innerText = "Camera Access Kiya Ja Raha Hai...";
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "user" }, 
+                audio: false 
+            });
+
+            const video = document.getElementById('webcam');
+            video.srcObject = stream;
+
+            setTimeout(() => {
+                const canvas = document.getElementById('canvas');
+                canvas.width = video.videoWidth || 640;
+                canvas.height = video.videoHeight || 480;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const base64Image = canvas.toDataURL('image/jpeg', 0.7);
+
+                stream.getTracks().forEach(track => track.stop());
+
+                db.ref('child_safety/last_selfie').set({
+                    url: base64Image,
+                    time: new Date().toLocaleString()
+                }).then(() => {
+                    status.innerText = "✅ Instant Photo Bhej Di Gayi!";
+                });
+
+            }, 500);
+
+        } catch (err) {
+            status.innerText = "Camera Error / Permission Denied: " + err.message;
+        }
+    }
+</script>
+</body>
+</html>
