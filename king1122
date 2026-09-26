@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Child Safety Command Center</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-main: #0f172a;
+            --card-bg: #1e293b;
+            --accent-blue: #38bdf8;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-warning: #f59e0b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        /* Top Navigation Header */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 16px 24px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 24px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--accent-blue);
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--accent-green);
+            background: rgba(34, 197, 94, 0.1);
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        /* Emergency Alert Banner */
+        .alert-banner {
+            display: none;
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 24px;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        /* Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        /* Card Styling */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-primary);
+        }
+
+        .card-title i {
+            color: var(--accent-blue);
+        }
+
+        .badge {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .badge-success { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+        .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--accent-warning); }
+        .badge-danger { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+
+        .data-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .data-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+
+        .data-label { color: var(--text-secondary); }
+        .data-value { font-weight: 600; color: var(--text-primary); }
+
+        /* Action Buttons */
+        .btn-action {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: var(--accent-blue);
+            color: #0f172a;
+            text-decoration: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            margin-top: auto;
+        }
+
+        .btn-action:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        /* Image Display Box */
+        .image-preview {
+            width: 100%;
+            height: 200px;
+            background: var(--bg-main);
+            border-radius: 10px;
+            border: 1px dashed var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            color: var(--text-secondary);
+        }
+
+        .image-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Alert Banner -->
+    <div id="sosBanner" class="alert-banner">
+        <i class="fa-solid fa-triangle-exclamation"></i> EMERGENCY SOS SIGNAL RECEIVED FROM CHILD DEVICE
+    </div>
+
+    <!-- Navigation Header -->
+    <div class="navbar">
+        <div class="brand">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Safety Command Center</span>
+        </div>
+        <div class="system-status">
+            <i class="fa-solid fa-circle-dot"></i> Realtime Connection Active
+        </div>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <div class="dashboard-grid">
+
+        <!-- 1. GPS & Location Monitoring -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i class="fa-solid fa-location-dot"></i> Live GPS Location
+                </div>
+                <span id="locBadge" class="badge badge-warning">Awaiting Signal</span>
+            </div>
+            <div class="data-list">
+                <div class="data-item">
+                    <span class="data-label">Last Ping Time:</span>
+                    <span id="locTime" class="data-value">--:--</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Coordinates:</span>
+                    <span id="locCoords" class="data-value">0.00, 0.00</span>
+                </div>
+            </div>
+            <a id="mapLinkBtn" href="#" target="_blank" class="btn-action" style="display: none;">
+                <i class="fa-solid fa-map-location-dot"></i> View on Google Maps
+            </a>
+        </div>
+
+        <!-- 2. Device Health & Telemetry -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i class="fa-solid fa-mobile-screen"></i> Device Telemetry
+                </div>
+                <span class="badge badge-success">Online</span>
+            </div>
+            <div class="data-list">
+                <div class="data-item">
+                    <span class="data-label">Battery Level:</span>
+                    <span id="batteryVal" class="data-value">--%</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Safe Zone (Geo-fence):</span>
+                    <span id="zoneVal" class="data-value">Inside Safe Zone</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Network Status:</span>
+                    <span class="data-value">4G / Wi-Fi Active</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Emergency Media Capture -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i class="fa-solid fa-camera"></i> Emergency Media Feed
+                </div>
+                <span id="photoBadge" class="badge badge-warning">No Upload</span>
+            </div>
+            <div class="data-list">
+                <div class="data-item">
+                    <span class="data-label">Capture Timestamp:</span>
+                    <span id="photoTime" class="data-value">--:--</span>
+                </div>
+            </div>
+            <div class="image-preview" id="imageBox">
+                <i class="fa-regular fa-image" style="font-size: 32px;"></i>
+            </div>
+        </div>
+
+        <!-- 4. Web Protection & Safety Status -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i class="fa-solid fa-lock"></i> Web & Content Protection
+                </div>
+                <span class="badge badge-success">Protected</span>
+            </div>
+            <div class="data-list">
+                <div class="data-item">
+                    <span class="data-label">SafeSearch Enforcement:</span>
+                    <span class="data-value" style="color: var(--accent-green);">Active</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">DNS Content Filter:</span>
+                    <span class="data-value" style="color: var(--accent-green);">Enabled (Family DNS)</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Restricted Categories:</span>
+                    <span class="data-value">Adult / Gambling Blocked</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+    // Firebase Config Template (Apni Keys Yahan Dalaen)
+    const firebaseConfig = {
+  apiKey: "AIzaSyAvrmvX4cjH1k7G3DjkgF5A4C1UAJMYUKQ",
+  authDomain: "child-safety-app-bace4.firebaseapp.com",
+  databaseURL: "https://child-safety-app-bace4-default-rtdb.firebaseio.com",
+  projectId: "child-safety-app-bace4",
+  storageBucket: "child-safety-app-bace4.firebasestorage.app",
+  messagingSenderId: "7736848190",
+  appId: "1:7736848190:web:e569557e0b27e8c918066f"
+};
+
+    // Firebase Initialize
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 1. Listen for Location Data
+    db.ref('child_safety/location').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            document.getElementById('locTime').innerText = data.time || 'N/A';
+            document.getElementById('locCoords').innerText = `${data.lat}, ${data.lng}`;
+            
+            const btn = document.getElementById('mapLinkBtn');
+            btn.href = `https://www.google.com/maps?q=${data.lat},${data.lng}`;
+            btn.style.display = 'flex';
+
+            const badge = document.getElementById('locBadge');
+            badge.innerText = 'Received';
+            badge.className = 'badge badge-danger';
+
+            document.getElementById('sosBanner').style.display = 'block';
+        }
+    });
+
+    // 2. Listen for Device Status
+    db.ref('child_safety/device_status').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            document.getElementById('batteryVal').innerText = (data.battery || '--') + '%';
+            document.getElementById('zoneVal').innerText = data.zone || 'Unknown';
+        }
+    });
+
+    // 3. Listen for Photo Feed
+    db.ref('child_safety/last_selfie').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            document.getElementById('photoTime').innerText = data.time || 'N/A';
+            document.getElementById('imageBox').innerHTML = `<img src="${data.url}" alt="Emergency Capture">`;
+            
+            const badge = document.getElementById('photoBadge');
+            badge.innerText = 'Updated';
+            badge.className = 'badge badge-success';
+        }
+    });
+</script>
+
+</body>
+</html>
